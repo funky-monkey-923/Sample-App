@@ -1,6 +1,17 @@
 @import "tailwindcss";
 
-/* Sanity Check: This should force the background to cream even if Tailwind fails */
+/* Custom Animations */
+@keyframes float {
+  0% { transform: translateY(0px); }
+  50% { transform: translateY(-10px); }
+  100% { transform: translateY(0px); }
+}
+
+.animate-float {
+  animation: float 3s ease-in-out infinite;
+}
+
+/* Sanity Check: Force background to cream */
 body {
   background-color: #FDFCF0 !important;
   margin: 0;
