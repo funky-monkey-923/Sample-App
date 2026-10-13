@@ -1,0 +1,8 @@
+@import "tailwindcss";
+
+/* Sanity Check: This should force the background to cream even if Tailwind fails */
+body {
+  background-color: #FDFCF0 !important;
+  margin: 0;
+  padding: 0;
+}
