@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { useLocalStorage } from '../../hooks/useLocalStorage';
+import { useCozySound } from '../../hooks/useCozySound';
 
 export default function TodoTool() {
   const [todos, setTodos] = useLocalStorage('cozy-todos', []);
   const [inputValue, setInputValue] = useState('');
+  const { playSound } = useCozySound();
   
   const [xp, setXp] = useLocalStorage('cozy-xp', 0);
   const [level, setLevel] = useLocalStorage('cozy-level', 1);
@@ -20,19 +22,22 @@ export default function TodoTool() {
     const nextLevelThreshold = level * 100;
     if (xp >= nextLevelThreshold) {
       setLevel(prev => prev + 1);
+      playSound('level_up.ogg');
     }
-  }, [xp, level]);
+  }, [xp, level, playSound]);
 
   useEffect(() => {
     const newUnlocks = REWARDS_DATABASE.filter(r => r.level <= level && !unlockedRewards.includes(r.id));
     if (newUnlocks.length > 0) {
       setUnlockedRewards(prev => [...prev, ...newUnlocks.map(r => r.id)]);
+      playSound('success.ogg');
     }
-  }, [level, unlockedRewards]);
+  }, [level, unlockedRewards, playSound]);
 
   const addTodo = (e) => {
     e.preventDefault();
     if (!inputValue.trim()) return;
+    playSound('pop.ogg');
     const newTodo = { id: Date.now(), text: inputValue, completed: false, createdAt: new Date().toISOString() };
     setTodos([...todos, newTodo]);
     setInputValue('');
@@ -42,8 +47,13 @@ export default function TodoTool() {
     setTodos(todos.map(todo => {
       if (todo.id === id) {
         const isCompleting = !todo.completed;
-        if (isCompleting) setXp(prev => prev + 20);
-        else setXp(prev => Math.max(0, prev - 10));
+        if (isCompleting) {
+          setXp(prev => prev + 20);
+          playSound('success.ogg');
+        } else {
+          setXp(prev => Math.max(0, prev - 10));
+          playSound('pop.ogg');
+        }
         return { ...todo, completed: isCompleting };
       }
       return todo;
@@ -51,23 +61,24 @@ export default function TodoTool() {
   };
 
   const deleteTodo = (id) => {
+    playSound('pop.ogg');
     setTodos(todos.filter(todo => todo.id !== id));
   };
 
   const xpProgress = ((xp % 100) / 100) * 100;
 
   return (
-    <div className="w-full max-w-xl mx-auto p-5 sm:p-8 bg-white/70 backdrop-blur-lg rounded-cozy shadow-cozy border-4 border-white">
+    <div className="w-full max-w-xl mx-auto p-8 bg-white/70 backdrop-blur-lg rounded-cozy shadow-cozy border-4 border-white transition-all duration-500">
       {/* Game Stats Header */}
-      <div className="flex flex-col sm:flex-row justify-between items-center gap-4 mb-8 bg-cozy-cream/50 p-4 rounded-2xl border border-cozy-sage/30">
-        <div className="flex items-center gap-3 w-full sm:w-auto justify-center sm:justify-start">
-          <div className="w-10 h-10 sm:w-12 sm:h-12 bg-cozy-amber rounded-full flex items-center justify-center text-xl sm:text-2xl shadow-inner border-2 border-white">
+      <div className="flex justify-between items-center mb-8 bg-cozy-cream/50 p-4 rounded-2xl border border-cozy-sage/30 transition-all hover:bg-cozy-cream/80">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 sm:w-12 sm:h-12 bg-cozy-amber rounded-full flex items-center justify-center text-xl sm:text-2xl shadow-inner border-2 border-white animate-float">
             🌟
           </div>
           <div className="flex-1 sm:flex-none">
             <p className="text-[10px] sm:text-xs font-bold text-cozy-sage uppercase tracking-tighter">Level {level} Adventurer</p>
             <div className="w-full sm:w-32 h-2 sm:h-3 bg-cozy-sage/20 rounded-full mt-1 overflow-hidden border border-cozy-sage/30">
-              <div className="h-full bg-cozy-terracotta transition-all duration-500 ease-out" style={{ width: `${xpProgress}%` }}></div>
+              <div className="h-full bg-cozy-terracotta transition-all duration-1000 ease-out" style={{ width: `${xpProgress}%` }}></div>
             </div>
           </div>
         </div>
@@ -79,15 +90,15 @@ export default function TodoTool() {
 
       {/* Rewards Gallery */}
       <div className="mb-8">
-        <p className="text-[10px] sm:text-xs font-bold text-cozy-sage uppercase mb-3 tracking-widest text-center">Trophy Room</p>
-        <div className="flex justify-center gap-2 sm:gap-3 flex-wrap">
+        <p className="text-xs font-bold text-cozy-sage uppercase mb-3 tracking-widest text-center">Trophy Room</p>
+        <div className="flex justify-center gap-3 flex-wrap">
           {REWARDS_DATABASE.map(reward => (
             <div 
               key={reward.id}
               title={unlockedRewards.includes(reward.id) ? reward.desc : `Unlock at Level ${reward.level}`}
-              className={`w-10 h-10 sm:w-12 sm:h-12 rounded-full flex items-center justify-center text-lg sm:text-xl transition-all duration-500 border-2 ${
+              className={`w-12 h-12 rounded-full flex items-center justify-center text-xl transition-all duration-500 border-2 cursor-help ${
                 unlockedRewards.includes(reward.id)
-                  ? 'bg-white border-cozy-amber shadow-sm scale-110'
+                  ? 'bg-white border-cozy-amber shadow-sm scale-110 hover:scale-125'
                   : 'bg-gray-100 border-gray-200 grayscale opacity-40'
               }`}
             >
@@ -97,51 +108,60 @@ export default function TodoTool() {
         </div>
       </div>
 
-      <div className="flex flex-col sm:flex-row justify-between items-center gap-2 mb-8">
-        <h2 className="text-2xl sm:text-3xl font-bold text-cozy-deep flex items-center gap-3">
-          <span className="text-2xl sm:text-3xl">🌿</span> Quest Log
+      <div className="flex justify-between items-center mb-8">
+        <h2 className="text-3xl font-bold text-cozy-deep flex items-center gap-3">
+          <span className="text-3xl">🌿</span> Quest Log
         </h2>
-        <span className="text-[10px] sm:text-xs font-bold uppercase tracking-widest text-cozy-sage bg-cozy-sage/20 px-3 py-1 rounded-full">
+        <span className="text-xs font-bold uppercase tracking-widest text-cozy-sage bg-cozy-sage/20 px-3 py-1 rounded-full">
           {todos.filter(t => !t.completed).length} Left
         </span>
       </div>
       
-      <form onSubmit={addTodo} className="flex gap-2 sm:gap-3 mb-10">
+      <form onSubmit={addTodo} className="flex gap-3 mb-10">
         <input
           type="text"
           value={inputValue}
           onChange={(e) => setInputValue(e.target.value)}
           placeholder="Add a new little quest..."
-          className="flex-1 px-4 sm:px-6 py-3 rounded-full border-2 border-cozy-sky/30 focus:outline-none focus:border-cozy-terracotta transition-all bg-white/90 placeholder-cozy-sage text-cozy-deep text-sm sm:text-base"
+          className="flex-1 px-6 py-3 rounded-full border-2 border-cozy-sky/30 focus:outline-none focus:border-cozy-terracotta transition-all bg-white/90 placeholder-cozy-sage text-cozy-deep"
         />
-        <button type="submit" className="bg-cozy-terracotta hover:bg-cozy-terracotta/80 text-white px-4 sm:px-6 py-3 rounded-full transition-all active:scale-95 shadow-md font-bold text-sm sm:text-base">
+        <button
+          type="submit"
+          className="bg-cozy-terracotta hover:bg-cozy-terracotta/80 text-white px-6 py-3 rounded-full transition-all active:scale-90 shadow-md font-bold"
+        >
           Add
         </button>
       </form>
 
       <div className="space-y-4">
         {todos.length === 0 ? (
-          <div className="text-center py-12">
+          <div className="text-center py-12 animate-float">
             <div className="text-5xl mb-4">🍵</div>
-            <p className="text-cozy-sage italic text-base sm:text-lg">Your quest log is empty.<br/>Time for a tea break!</p>
+            <p className="text-cozy-sage italic text-lg">Your quest log is empty.<br/>Everything is handled. Time for a long tea break!</p>
           </div>
         ) : (
           todos.map(todo => (
-            <div key={todo.id} className="flex items-center justify-between p-3 sm:p-4 bg-white/80 rounded-2xl border-2 border-transparent hover:border-cozy-sky/50 transition-all shadow-sm group">
-              <div className="flex items-center gap-3 sm:gap-4">
-                <button 
+            <div
+              key={todo.id}
+              className="flex items-center justify-between p-4 bg-white/80 rounded-2xl border-2 border-transparent hover:border-cozy-sky/50 transition-all duration-300 shadow-sm group active:scale-[0.98]"
+            >
+              <div className="flex items-center gap-4">
+                <button
                   onClick={() => toggleTodo(todo.id)}
-                  className={`w-6 h-6 sm:w-7 sm:h-7 rounded-full border-2 flex items-center justify-center transition-all ${
+                  className={`w-7 h-7 rounded-full border-2 flex items-center justify-center transition-all active:scale-75 ${
                     todo.completed ? 'bg-cozy-sage border-cozy-sage text-white' : 'border-cozy-sky/40 hover:border-cozy-terracotta'
                   }`}
                 >
                   {todo.completed && '✓'}
                 </button>
-                <span className={`${todo.completed ? 'line-through text-cozy-sage' : 'text-cozy-deep'} font-medium transition-all text-sm sm:text-base`}>
+                <span className={` transition-all duration-300 ${todo.completed ? 'line-through text-cozy-sage opacity-60' : 'text-cozy-deep'}`}>
                   {todo.text}
                 </span>
-              </div>
-              <button onClick={() => deleteTodo(todo.id)} className="text-cozy-sage hover:text-red-400 transition-colors opacity-0 group-hover:opacity-100 p-1">
+      </div>
+              <button
+                onClick={() => deleteTodo(todo.id)}
+                className="text-cozy-sage hover:text-red-400 transition-colors opacity-0 group-hover:opacity-100 p-1"
+              >
                 ✕
               </button>
             </div>
